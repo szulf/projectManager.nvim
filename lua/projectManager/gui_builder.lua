@@ -190,7 +190,7 @@ function gui_builder.set_mappings_details()
 	}
 
 	for k, v in pairs(mappings) do
-		vim.api.nvim_buf_set_keymap(buf, 'n', k, ':lua require("todolist.gui_builder").' .. v .. '<cr>', { nowait = true, noremap = true, silent = true })
+		vim.api.nvim_buf_set_keymap(buf, 'n', k, ':lua require("projectManager.gui_builder").' .. v .. '<cr>', { nowait = true, noremap = true, silent = true })
 	end
 end
 
