@@ -1,4 +1,8 @@
 -- Needed functionalities
+-- change task display to only name
+-- and create a 'Task Details' window, entered with enter
+-- just like the project display
+--
 -- deleting comments and tasks
 -- editing comments and tasks and changing priorities and statuses, no idea how to do it
 -- Auto open project named like the top directory of cwd
@@ -86,6 +90,30 @@ function data_io.add_task(project_id, task)
 	if err or file == nil then return err end
 
 	table.insert(projects[project_id].tasks, task)
+	file:write(dkjson.encode(projects, { indent = false }))
+
+	io.close(file)
+end
+
+function data_io.remove_comment(project_id, comment_id)
+	local projects, err = data_io.get_all_projects()
+	if err or projects == nil then return err end
+	local file, err = io.open(path, 'w')
+	if err or file == nil then return err end
+
+	table.remove(projects[project_id].comments, comment_id)
+	file:write(dkjson.encode(projects, { indent = false }))
+
+	io.close(file)
+end
+
+function data_io.remove_task(project_id, task_id)
+	local projects, err = data_io.get_all_projects()
+	if err or projects == nil then return err end
+	local file, err = io.open(path, 'w')
+	if err or file == nil then return err end
+
+	table.remove(projects[project_id].tasks, task_id)
 	file:write(dkjson.encode(projects, { indent = false }))
 
 	io.close(file)

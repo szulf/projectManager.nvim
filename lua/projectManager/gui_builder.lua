@@ -187,6 +187,7 @@ function gui_builder.set_mappings_details()
 		-- ['<cr>'] = '',
 		['<BS>'] = 'open_project_list_window()',
 		c = 'decide_comment_task_creation()',
+		d = 'decide_comment_task_removal()',
 		q = 'close_window()',
 	}
 
@@ -230,15 +231,15 @@ function gui_builder.decide_comment_task_creation()
 	end
 
 	local project, err = data_io.get_project_by_id(gui_builder.chosen_project_id)
-	if err or project == nil then return end
-	local create_task
+	if err or project == nil then return err end
+	local create_comment
 	if row <= #project.comments + comment_line_number then
-		create_task = true
+		create_comment = true
 	else
-		create_task = false
+		create_comment = false
 	end
 
-	if create_task then
+	if create_comment then
 		vim.ui.input({ prompt = 'Enter content of the comment: ' },
 		function(input)
 			data_io.add_comment(gui_builder.chosen_project_id, input)
@@ -261,6 +262,52 @@ function gui_builder.decide_comment_task_creation()
 		end)
 		data_io.add_task(gui_builder.chosen_project_id, task)
 	end
+	gui_builder.open_project_details_window_by_id(gui_builder.chosen_project_id)
+end
+
+function gui_builder.decide_comment_task_removal()
+	if gui_builder.chosen_project_id == nil then return end
+
+	local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
+	local comment_line_number = 7
+	if row <= comment_line_number then
+		print('Please select a valid line')
+		return
+	end
+
+	local project, err = data_io.get_project_by_id(gui_builder.chosen_project_id)
+	if err or project == nil then return err end
+	if row == #project.comments + comment_line_number + 1 then
+		print('Please select a valid line')
+		return
+	end
+
+	local remove_comment, id
+	if row <= #project.comments + comment_line_number then
+		remove_comment = true
+		id = row - comment_line_number
+	elseif row > #project.comments + comment_line_number + 1 then
+		remove_comment = false
+		id = row - #project.comments - comment_line_number - 1
+	end
+
+	local confirm = false
+	vim.ui.input({ prompt = 'Are you sure you want to delete this?[(y)es/(n)o]' }, function(input)
+		if input == 'y' or input == 'yes' then
+			confirm = true
+		end
+	end)
+
+	if not confirm then
+		return
+	end
+
+	if remove_comment then
+		data_io.remove_comment(gui_builder.chosen_project_id, id)
+	else
+		data_io.remove_task(gui_builder.chosen_project_id, id)
+	end
+
 	gui_builder.open_project_details_window_by_id(gui_builder.chosen_project_id)
 end
 
