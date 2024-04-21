@@ -3,8 +3,6 @@ local data_io = require('projectManager.project_data_io')
 
 local command_builder = {}
 
-local buf, win
-
 function command_builder.init()
 	command_builder.build_create_project_cmd()
 	command_builder.build_project_list_cmd()

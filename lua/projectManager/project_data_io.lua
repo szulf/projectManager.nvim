@@ -1,5 +1,4 @@
 -- Needed functionalities
--- Adding tasks
 -- deleting comments and tasks
 -- editing comments and tasks and changing priorities and statuses, no idea how to do it
 -- Auto open project named like the top directory of cwd
@@ -38,7 +37,7 @@ function data_io.get_all_projects()
 	io.close(file)
 
 	local projects, _, err = dkjson.decode(str)
-	if err then return nil, err end
+	if err or projects == nil then return nil, err end
 
 	return projects, nil
 end

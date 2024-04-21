@@ -185,6 +185,7 @@ function gui_builder.set_mappings_details()
 		-- might make so that comments and tasks can be folded with control while hovering on then
 		-- thats a plan for the future tho
 		-- ['<cr>'] = '',
+		['<BS>'] = 'open_project_list_window()',
 		c = 'decide_comment_task_creation()',
 		q = 'close_window()',
 	}
@@ -200,12 +201,12 @@ function gui_builder.open_project_list_window()
 end
 
 function gui_builder.open_project_details_window()
-	local r, _ = unpack(vim.api.nvim_win_get_cursor(0))
-	if r <= 3 then
+	local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
+	if row <= 3 then
 		print('Please select a valid line')
 		return
 	end
-	local project_id = r - 3
+	local project_id = row - 3
 
 	gui_builder.close_window()
 	gui_builder.build_window()
@@ -220,10 +221,26 @@ end
 
 function gui_builder.decide_comment_task_creation()
 	if gui_builder.chosen_project_id == nil then return end
-	local val = true
-	val = false
-	if val then
-		vim.ui.input({ prompt = 'Enter the content of the comment: ' }, function(input)
+
+	local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
+	local comment_line_number = 6
+	if row <= comment_line_number then
+		print('Please select a valid line')
+		return
+	end
+
+	local project, err = data_io.get_project_by_id(gui_builder.chosen_project_id)
+	if err or project == nil then return end
+	local create_task
+	if row <= #project.comments + comment_line_number then
+		create_task = true
+	else
+		create_task = false
+	end
+
+	if create_task then
+		vim.ui.input({ prompt = 'Enter content of the comment: ' },
+		function(input)
 			data_io.add_comment(gui_builder.chosen_project_id, input)
 		end)
 	else
@@ -233,6 +250,15 @@ function gui_builder.decide_comment_task_creation()
 			priority = 0,
 			status = 0
 		}
+		vim.ui.input({ prompt = 'Enter task name: ' }, function(input)
+			task.name = input
+		end)
+		vim.ui.input({ prompt = 'Enter task description: ' }, function(input)
+			task.desc = input
+		end)
+		vim.ui.input({ prompt = 'Enter task priority: ' }, function(input)
+			task.priority = input
+		end)
 		data_io.add_task(gui_builder.chosen_project_id, task)
 	end
 	gui_builder.open_project_details_window_by_id(gui_builder.chosen_project_id)
