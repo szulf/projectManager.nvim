@@ -3,6 +3,7 @@ local data_io = require('projectManager.project_data_io')
 local gui_builder = {}
 gui_builder.window_type = nil
 gui_builder.chosen_project_id = nil
+gui_builder.chosen_task_id = nil
 
 local win, buf
 
@@ -32,15 +33,22 @@ local function get_project_string_by_id(project_id)
 	end
 
 	table.insert(to_display, 'Tasks:')
-	for i, v in ipairs(project.tasks) do
-		table.insert(to_display, string.format('\tName: %s', v.name))
-		table.insert(to_display, string.format('\tDescription: %s', v.desc))
-		table.insert(to_display, string.format('\tPriority: %s', v.priority))
-		table.insert(to_display, string.format('\tStatus: %s', v.status))
-		if not (i == #project.tasks) then
-			table.insert(to_display, string.rep('-', 15))
-		end
+	for _, v in ipairs(project.tasks) do
+		table.insert(to_display, string.format('\t%s', v.name))
 	end
+
+	return to_display, nil
+end
+
+local function get_task_string_by_id(task_id)
+	local task, err = data_io.get_task_by_id(gui_builder.chosen_project_id, task_id)
+	if err or task == nil then return nil, err end
+	local to_display = {}
+
+	table.insert(to_display, string.format('Name: %s', task.name))
+	table.insert(to_display, string.format('Priority: %s', task.priority))
+	table.insert(to_display, string.format('Status: %s', task.status))
+	table.insert(to_display, string.format('Description: %s', task.desc))
 
 	return to_display, nil
 end
@@ -169,9 +177,39 @@ function gui_builder.render_project_by_id(project_id)
 	gui_builder.set_mappings_details()
 end
 
+function gui_builder.render_task_by_id(task_id)
+	vim.api.nvim_buf_set_option(buf, 'modifiable', true)
+
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+		center('Task Details'),
+		'',
+		string.rep('═', vim.api.nvim_win_get_width(0)),
+	})
+
+	local to_display, err = get_task_string_by_id(task_id)
+	if err or to_display == nil then return end
+	local list = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+	for _, v in ipairs(to_display) do
+		table.insert(list, v)
+	end
+
+	if list == nil then
+		vim.api.nvim_buf_set_option(buf, 'modifiable', false)
+		return
+	end
+
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, list)
+	vim.api.nvim_buf_set_option(buf, 'modifiable', false)
+
+	gui_builder.set_mappings_tasks()
+end
+
 function gui_builder.set_mappings_list()
 	local mappings = {
-		['<cr>'] = 'open_project_details_window()',
+		['<cr>'] = 'open_project_details_win()',
+		c = 'create_project()',
+		d = 'remove_project()', -- not implemented yet
+		r = 'rename_project()', -- not implemented yet
 		q = 'close_window()',
 	}
 
@@ -182,10 +220,11 @@ end
 
 function gui_builder.set_mappings_details()
 	local mappings = {
-		-- might make so that comments and tasks can be folded with control while hovering on then
-		-- thats a plan for the future tho
-		-- ['<cr>'] = '',
+		['<cr>'] = 'open_task_details_win()',
+		['<BS>'] = 'open_project_list_win()',
 		c = 'decide_comment_task_creation()',
+		d = 'decide_comment_task_removal()',
+		r = 'change_property_details()',
 		q = 'close_window()',
 	}
 
@@ -194,18 +233,30 @@ function gui_builder.set_mappings_details()
 	end
 end
 
-function gui_builder.open_project_list_window()
+function gui_builder.set_mappings_tasks()
+	local mappings = {
+		['<BS>'] = string.format('open_project_details_win_by_id(%s)', gui_builder.chosen_project_id),
+		r = 'change_property_task()',
+		q = 'close_window()',
+	}
+
+	for k, v in pairs(mappings) do
+		vim.api.nvim_buf_set_keymap(buf, 'n', k, ':lua require("projectManager.gui_builder").' .. v .. '<cr>', { nowait = true, noremap = true, silent = true })
+	end
+end
+
+function gui_builder.open_project_list_win()
 	gui_builder.build_window()
 	gui_builder.render_all_projects()
 end
 
-function gui_builder.open_project_details_window()
-	local r, _ = unpack(vim.api.nvim_win_get_cursor(0))
-	if r <= 3 then
+function gui_builder.open_project_details_win()
+	local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
+	if row <= 3 then
 		print('Please select a valid line')
 		return
 	end
-	local project_id = r - 3
+	local project_id = row - 3
 
 	gui_builder.close_window()
 	gui_builder.build_window()
@@ -213,17 +264,55 @@ function gui_builder.open_project_details_window()
 	gui_builder.chosen_project_id = project_id
 end
 
-function gui_builder.open_project_details_window_by_id(project_id)
+function gui_builder.open_project_details_win_by_id(project_id)
 	gui_builder.build_window()
 	gui_builder.render_project_by_id(project_id)
 end
 
+function gui_builder.open_task_details_win()
+	local project, err = data_io.get_project_by_id(gui_builder.chosen_project_id)
+	if err or project == nil then return err end
+	local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
+	if row <= 3 then
+		print('Please select a valid line')
+		return
+	end
+	local comment_line_number = 7
+	local task_id = row - #project.comments - comment_line_number - 1
+
+	gui_builder.close_window()
+	gui_builder.build_window()
+	gui_builder.render_task_by_id(task_id)
+	gui_builder.chosen_task_id = task_id
+end
+
+function gui_builder.open_task_details_win_by_id(task_id)
+	gui_builder.build_window()
+	gui_builder.render_task_by_id(task_id)
+end
+
 function gui_builder.decide_comment_task_creation()
 	if gui_builder.chosen_project_id == nil then return end
-	local val = true
-	val = false
-	if val then
-		vim.ui.input({ prompt = 'Enter the content of the comment: ' }, function(input)
+
+	local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
+	local comment_line_number = 6
+	if row <= comment_line_number then
+		print('Please select a valid line')
+		return
+	end
+
+	local project, err = data_io.get_project_by_id(gui_builder.chosen_project_id)
+	if err or project == nil then return err end
+	local create_comment
+	if row <= #project.comments + comment_line_number then
+		create_comment = true
+	else
+		create_comment = false
+	end
+
+	if create_comment then
+		vim.ui.input({ prompt = 'Enter content of the comment: ' },
+		function(input)
 			data_io.add_comment(gui_builder.chosen_project_id, input)
 		end)
 	else
@@ -233,9 +322,179 @@ function gui_builder.decide_comment_task_creation()
 			priority = 0,
 			status = 0
 		}
+		vim.ui.input({ prompt = 'Enter task name: ' }, function(input)
+			task.name = input
+		end)
+		vim.ui.input({ prompt = 'Enter task description: ' }, function(input)
+			task.desc = input
+		end)
+		vim.ui.input({ prompt = 'Enter task priority: ' }, function(input)
+			task.priority = input
+		end)
 		data_io.add_task(gui_builder.chosen_project_id, task)
 	end
-	gui_builder.open_project_details_window_by_id(gui_builder.chosen_project_id)
+	gui_builder.open_project_details_win_by_id(gui_builder.chosen_project_id)
+end
+
+function gui_builder.decide_comment_task_removal()
+	if gui_builder.chosen_project_id == nil then return end
+
+	local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
+	local comment_line_number = 7
+	if row <= comment_line_number then
+		print('Please select a valid line')
+		return
+	end
+
+	local project, err = data_io.get_project_by_id(gui_builder.chosen_project_id)
+	if err or project == nil then return err end
+	if row == #project.comments + comment_line_number + 1 then
+		print('Please select a valid line')
+		return
+	end
+
+	local remove_comment, id
+	if row <= #project.comments + comment_line_number then
+		remove_comment = true
+		id = row - comment_line_number
+	elseif row > #project.comments + comment_line_number + 1 then
+		remove_comment = false
+		id = row - #project.comments - comment_line_number - 1
+	end
+
+	local confirm = false
+	vim.ui.input({ prompt = 'Are you sure you want to delete this?[(y)es/(n)o]' }, function(input)
+		if input == 'y' or input == 'yes' then
+			confirm = true
+		end
+	end)
+
+	if not confirm then
+		return
+	end
+
+	if remove_comment then
+		data_io.remove_comment(gui_builder.chosen_project_id, id)
+	else
+		data_io.remove_task(gui_builder.chosen_project_id, id)
+	end
+
+	gui_builder.open_project_details_win_by_id(gui_builder.chosen_project_id)
+end
+
+function gui_builder.change_property_details()
+	local projects, err = data_io.get_all_projects()
+	if err or projects == nil then return err end
+	local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
+
+	local name_line_number = 4
+	local priority_line_number = 5
+	local status_line_number = 6
+	local comment_line_number = 7
+	local task_line_number = comment_line_number + #projects[gui_builder.chosen_project_id].comments + 1
+
+	if row == name_line_number then
+		vim.ui.input({ prompt = 'Enter the new name: ' }, function(input)
+			data_io.edit.name(gui_builder.chosen_project_id, input)
+		end)
+	elseif row == priority_line_number then
+		vim.ui.input({ prompt = 'Enter the new priority: ' }, function(input)
+			data_io.edit.priority(gui_builder.chosen_project_id, input)
+		end)
+	elseif row == status_line_number then
+		vim.ui.input({ prompt = 'Enter the new status: ' }, function(input)
+			data_io.edit.status(gui_builder.chosen_project_id, input)
+		end)
+	elseif row > comment_line_number and row < task_line_number then
+		vim.ui.input({ prompt = 'Enter the new comment: ' }, function(input)
+			local comment_id = row - 7
+			data_io.edit.comment(gui_builder.chosen_project_id, comment_id, input)
+		end)
+	else
+		print('Please select a vaild line')
+		return
+	end
+
+	gui_builder.open_project_details_win_by_id(gui_builder.chosen_project_id)
+end
+
+function gui_builder.change_property_task()
+	local projects, err = data_io.get_all_projects()
+	if err or projects == nil then return err end
+	local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
+
+	local name_line_number = 4
+	local priority_line_number = 5
+	local status_line_number = 6
+	local description_line_number = 7
+
+	if row == name_line_number then
+		vim.ui.input({ prompt = 'Enter the new name: ' }, function(input)
+			data_io.edit.task.name(gui_builder.chosen_project_id, gui_builder.chosen_task_id, input)
+		end)
+	elseif row == priority_line_number then
+		vim.ui.input({ prompt = 'Enter the new priority: ' }, function(input)
+			data_io.edit.task.priority(gui_builder.chosen_project_id, gui_builder.chosen_task_id, input)
+		end)
+	elseif row == status_line_number then
+		vim.ui.input({ prompt = 'Enter the new status: ' }, function(input)
+			data_io.edit.task.status(gui_builder.chosen_project_id, gui_builder.chosen_task_id, input)
+		end)
+	elseif row == description_line_number then
+		vim.ui.input({ prompt = 'Enter the new description: ' }, function(input)
+			data_io.edit.task.desc(gui_builder.chosen_project_id, gui_builder.chosen_task_id, input)
+		end)
+	else
+		print('Please select a vaild line')
+		return
+	end
+
+	gui_builder.open_task_details_win_by_id(gui_builder.chosen_task_id)
+end
+
+function gui_builder.create_project()
+	local name, priority
+	vim.ui.input({ prompt = 'Enter the projects name: '}, function(input)
+		name = input
+	end)
+	vim.ui.input({ prompt = 'Enter the projects priority: '}, function(input)
+		priority = input
+	end)
+
+	data_io.add_project(name, priority)
+	gui_builder.open_project_list_win()
+end
+
+function gui_builder.remove_project()
+	local logo_display_end_line = 3
+	local row, _ = unpack(vim.api.nvim_win_get_cursor(win))
+	if row <= logo_display_end_line then
+		print('Please select a valid line')
+		return
+	end
+	local project_id = row - logo_display_end_line
+
+	vim.ui.input({ prompt = 'Are you sure you want to delete this?[(y)es, (n)o]' }, function(input)
+		if input == 'y' or input == 'yes' then
+			data_io.remove_project(project_id)
+			gui_builder.open_project_list_win()
+		end
+	end)
+end
+
+function gui_builder.rename_project()
+	local logo_display_end_line = 3
+	local row, _ = unpack(vim.api.nvim_win_get_cursor(win))
+	if row <= logo_display_end_line then
+		print('Please select a valid line')
+		return
+	end
+	local project_id = row - logo_display_end_line
+
+	vim.ui.input({ prompt = 'Enter projects name: ' }, function(input)
+		data_io.edit.name(project_id, input)
+	end)
+	gui_builder.open_project_list_win()
 end
 
 return gui_builder
