@@ -1,17 +1,3 @@
--- Needed functionalities
--- Adding and deleting projects from gui
--- and changing task name in the 'Project List' window
---
--- Auto open project named like the top directory of cwd
--- CreateProject command with no args creates a project named like top folder of cwd
--- Changing the working directory with vim.cmd('cd asdf') after selecting a project and clicking something like g
---
--- Create a help window thats gonna show all bindings
--- I feel like i will forget half the keybinds by the time i get to this but fuck it
---
--- Maybe do the highlights not really important tho
--- Maybe but really maybe make those keybinds rebindable
-
 local dkjson = require('dkjson')
 
 local path = os.getenv('HOME') .. '/projects.json'
@@ -220,5 +206,17 @@ data_io.edit = {
 		end,
 	},
 }
+
+function data_io.remove_project(project_id)
+	local projects, err = data_io.get_all_projects()
+	if err or projects == nil then return err end
+	local file, err = io.open(path, 'w')
+	if err or file == nil then return err end
+
+	table.remove(projects, project_id)
+	file:write(dkjson.encode(projects, { indent = false }))
+
+	io.close(file)
+end
 
 return data_io

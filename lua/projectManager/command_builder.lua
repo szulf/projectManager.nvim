@@ -1,5 +1,4 @@
 local gui_builder = require('projectManager.gui_builder')
-local data_io = require('projectManager.project_data_io')
 
 local command_builder = {}
 
@@ -10,11 +9,9 @@ end
 
 function command_builder.build_create_project_cmd()
 	vim.api.nvim_create_user_command('CreateProject',
-		function(opts)
-			vim.ui.input({ prompt = 'Enter priority of the project: ' }, function(input)
-				data_io.add_project(opts.fargs[1], input)
-			end)
-		end, { nargs = 1 })
+		function()
+			gui_builder.create_project()
+		end, {})
 end
 
 function command_builder.build_project_list_cmd()

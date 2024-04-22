@@ -207,8 +207,8 @@ end
 function gui_builder.set_mappings_list()
 	local mappings = {
 		['<cr>'] = 'open_project_details_win()',
-		c = 'create_project()', -- not implemented yet
-		d = 'delete_project()', -- not implemented yet
+		c = 'create_project()',
+		d = 'remove_project()', -- not implemented yet
 		r = 'rename_project()', -- not implemented yet
 		q = 'close_window()',
 	}
@@ -450,6 +450,51 @@ function gui_builder.change_property_task()
 	end
 
 	gui_builder.open_task_details_win_by_id(gui_builder.chosen_task_id)
+end
+
+function gui_builder.create_project()
+	local name, priority
+	vim.ui.input({ prompt = 'Enter the projects name: '}, function(input)
+		name = input
+	end)
+	vim.ui.input({ prompt = 'Enter the projects priority: '}, function(input)
+		priority = input
+	end)
+
+	data_io.add_project(name, priority)
+	gui_builder.open_project_list_win()
+end
+
+function gui_builder.remove_project()
+	local logo_display_end_line = 3
+	local row, _ = unpack(vim.api.nvim_win_get_cursor(win))
+	if row <= logo_display_end_line then
+		print('Please select a valid line')
+		return
+	end
+	local project_id = row - logo_display_end_line
+
+	vim.ui.input({ prompt = 'Are you sure you want to delete this?[(y)es, (n)o]' }, function(input)
+		if input == 'y' or input == 'yes' then
+			data_io.remove_project(project_id)
+			gui_builder.open_project_list_win()
+		end
+	end)
+end
+
+function gui_builder.rename_project()
+	local logo_display_end_line = 3
+	local row, _ = unpack(vim.api.nvim_win_get_cursor(win))
+	if row <= logo_display_end_line then
+		print('Please select a valid line')
+		return
+	end
+	local project_id = row - logo_display_end_line
+
+	vim.ui.input({ prompt = 'Enter projects name: ' }, function(input)
+		data_io.edit.name(project_id, input)
+	end)
+	gui_builder.open_project_list_win()
 end
 
 return gui_builder
