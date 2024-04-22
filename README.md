@@ -2,14 +2,9 @@
 - NeoVim plugin made for managing projects and tasks withing those projects
 
 ## Features
-- STILL WIP, but currently
-- creating new projects, viewing them inside a floating window
-- and creating and deleting comments and tasks for them
-
-## Usage
-- Simply use the 'CreateProject' command with a name for the project as the argument to create a project
-- And 'ProjectList' to view all your projects
-- Clicking enter on a selected project will show more information about it
+- Everything regarding projectManagement
+- gonna update this more precisely later, when I fully finish this
+- Mostly functional but still misses some small features
 
 ## How it works
 - projectManager.nvim creates a 'projects.json' file with all your data in the $HOME directory
