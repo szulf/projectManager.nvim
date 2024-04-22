@@ -20,7 +20,7 @@ end
 function command_builder.build_project_list_cmd()
 	vim.api.nvim_create_user_command('ProjectList',
 		function()
-			gui_builder.open_project_list_window()
+			gui_builder.open_project_list_win()
 		end, {})
 end
 

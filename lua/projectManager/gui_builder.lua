@@ -3,6 +3,7 @@ local data_io = require('projectManager.project_data_io')
 local gui_builder = {}
 gui_builder.window_type = nil
 gui_builder.chosen_project_id = nil
+gui_builder.chosen_task_id = nil
 
 local win, buf
 
@@ -32,15 +33,22 @@ local function get_project_string_by_id(project_id)
 	end
 
 	table.insert(to_display, 'Tasks:')
-	for i, v in ipairs(project.tasks) do
-		table.insert(to_display, string.format('\tName: %s', v.name))
-		table.insert(to_display, string.format('\tDescription: %s', v.desc))
-		table.insert(to_display, string.format('\tPriority: %s', v.priority))
-		table.insert(to_display, string.format('\tStatus: %s', v.status))
-		if not (i == #project.tasks) then
-			table.insert(to_display, string.rep('-', 15))
-		end
+	for _, v in ipairs(project.tasks) do
+		table.insert(to_display, string.format('\t%s', v.name))
 	end
+
+	return to_display, nil
+end
+
+local function get_task_string_by_id(task_id)
+	local task, err = data_io.get_task_by_id(gui_builder.chosen_project_id, task_id)
+	if err or task == nil then return nil, err end
+	local to_display = {}
+
+	table.insert(to_display, string.format('Name: %s', task.name))
+	table.insert(to_display, string.format('Description: %s', task.desc))
+	table.insert(to_display, string.format('Priority: %s', task.priority))
+	table.insert(to_display, string.format('Status: %s', task.status))
 
 	return to_display, nil
 end
@@ -169,9 +177,36 @@ function gui_builder.render_project_by_id(project_id)
 	gui_builder.set_mappings_details()
 end
 
+function gui_builder.render_task_by_id(task_id)
+	vim.api.nvim_buf_set_option(buf, 'modifiable', true)
+
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+		center('Task Details'),
+		'',
+		string.rep('═', vim.api.nvim_win_get_width(0)),
+	})
+
+	local to_display, err = get_task_string_by_id(task_id)
+	if err or to_display == nil then return end
+	local list = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+	for _, v in ipairs(to_display) do
+		table.insert(list, v)
+	end
+
+	if list == nil then
+		vim.api.nvim_buf_set_option(buf, 'modifiable', false)
+		return
+	end
+
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, list)
+	vim.api.nvim_buf_set_option(buf, 'modifiable', false)
+
+	gui_builder.set_mappings_tasks()
+end
+
 function gui_builder.set_mappings_list()
 	local mappings = {
-		['<cr>'] = 'open_project_details_window()',
+		['<cr>'] = 'open_project_details_win()',
 		q = 'close_window()',
 	}
 
@@ -182,10 +217,8 @@ end
 
 function gui_builder.set_mappings_details()
 	local mappings = {
-		-- might make so that comments and tasks can be folded with control while hovering on then
-		-- thats a plan for the future tho
-		-- ['<cr>'] = '',
-		['<BS>'] = 'open_project_list_window()',
+		['<cr>'] = 'open_task_details_win()',
+		['<BS>'] = 'open_project_list_win()',
 		c = 'decide_comment_task_creation()',
 		d = 'decide_comment_task_removal()',
 		q = 'close_window()',
@@ -196,12 +229,23 @@ function gui_builder.set_mappings_details()
 	end
 end
 
-function gui_builder.open_project_list_window()
+function gui_builder.set_mappings_tasks()
+	local mappings = {
+		['<BS>'] = string.format('open_project_details_win_by_id(%s)', gui_builder.chosen_project_id),
+		q = 'close_window()',
+	}
+
+	for k, v in pairs(mappings) do
+		vim.api.nvim_buf_set_keymap(buf, 'n', k, ':lua require("projectManager.gui_builder").' .. v .. '<cr>', { nowait = true, noremap = true, silent = true })
+	end
+end
+
+function gui_builder.open_project_list_win()
 	gui_builder.build_window()
 	gui_builder.render_all_projects()
 end
 
-function gui_builder.open_project_details_window()
+function gui_builder.open_project_details_win()
 	local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
 	if row <= 3 then
 		print('Please select a valid line')
@@ -215,9 +259,26 @@ function gui_builder.open_project_details_window()
 	gui_builder.chosen_project_id = project_id
 end
 
-function gui_builder.open_project_details_window_by_id(project_id)
+function gui_builder.open_project_details_win_by_id(project_id)
 	gui_builder.build_window()
 	gui_builder.render_project_by_id(project_id)
+end
+
+function gui_builder.open_task_details_win()
+	local project, err = data_io.get_project_by_id(gui_builder.chosen_project_id)
+	if err or project == nil then return err end
+	local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
+	if row <= 3 then
+		print('Please select a valid line')
+		return
+	end
+	local comment_line_number = 7
+	local task_id = row - #project.comments - comment_line_number - 1
+
+	gui_builder.close_window()
+	gui_builder.build_window()
+	gui_builder.render_task_by_id(task_id)
+	gui_builder.chosen_task_id = task_id
 end
 
 function gui_builder.decide_comment_task_creation()
@@ -262,7 +323,7 @@ function gui_builder.decide_comment_task_creation()
 		end)
 		data_io.add_task(gui_builder.chosen_project_id, task)
 	end
-	gui_builder.open_project_details_window_by_id(gui_builder.chosen_project_id)
+	gui_builder.open_project_details_win_by_id(gui_builder.chosen_project_id)
 end
 
 function gui_builder.decide_comment_task_removal()
@@ -308,7 +369,7 @@ function gui_builder.decide_comment_task_removal()
 		data_io.remove_task(gui_builder.chosen_project_id, id)
 	end
 
-	gui_builder.open_project_details_window_by_id(gui_builder.chosen_project_id)
+	gui_builder.open_project_details_win_by_id(gui_builder.chosen_project_id)
 end
 
 return gui_builder

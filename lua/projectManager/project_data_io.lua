@@ -1,14 +1,13 @@
 -- Needed functionalities
--- change task display to only name
--- and create a 'Task Details' window, entered with enter
--- just like the project display
+-- editing comments and tasks and changing priorities and statuses
 --
--- deleting comments and tasks
--- editing comments and tasks and changing priorities and statuses, no idea how to do it
 -- Auto open project named like the top directory of cwd
 -- CreateProject command with no args creates a project named like top folder of cwd
 -- Changing the working directory with vim.cmd('cd asdf') after selecting a project and clicking something like g
+--
+-- Create a help window thats gonna show all bindings
 -- Maybe do the highlights not really important tho
+-- Maybe but really maybe make those keybinds rebindable
 
 local dkjson = require('dkjson')
 
@@ -117,6 +116,13 @@ function data_io.remove_task(project_id, task_id)
 	file:write(dkjson.encode(projects, { indent = false }))
 
 	io.close(file)
+end
+
+function data_io.get_task_by_id(project_id, task_id)
+	local projects, err = data_io.get_all_projects()
+	if err or projects == nil then return nil, err end
+
+	return projects[project_id].tasks[task_id], nil
 end
 
 return data_io

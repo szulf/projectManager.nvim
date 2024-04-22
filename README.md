@@ -4,7 +4,7 @@
 ## Features
 - STILL WIP, but currently
 - creating new projects, viewing them inside a floating window
-- and creating comments for them
+- and creating and deleting comments and tasks for them
 
 ## Usage
 - Simply use the 'CreateProject' command with a name for the project as the argument to create a project
