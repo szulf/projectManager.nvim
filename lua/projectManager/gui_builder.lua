@@ -59,6 +59,15 @@ local function center(str)
 	return string.rep(' ', shift) .. str
 end
 
+local function get_current_project_name()
+	local cwd, _, err = vim.loop.cwd()
+	if cwd == nil then return nil, err end
+	local slash_position = string.find(string.reverse(cwd), '/')
+	if slash_position == nil then return nil, nil end
+	local curr_project = string.sub(cwd, slash_position + 1)
+	return curr_project
+end
+
 function gui_builder.init()
 
 end
@@ -289,6 +298,14 @@ end
 function gui_builder.open_task_details_win_by_id(task_id)
 	gui_builder.build_window()
 	gui_builder.render_task_by_id(task_id)
+end
+
+function gui_builder.open_current_project_win()
+	print(get_current_project_name())
+	local curr_project_id = data_io.get_project_id_by_name(get_current_project_name())
+	gui_builder.build_window()
+	gui_builder.render_project_by_id(curr_project_id)
+	gui_builder.chosen_project_id = curr_project_id
 end
 
 function gui_builder.decide_comment_task_creation()

@@ -40,6 +40,18 @@ function data_io.get_project_by_id(project_id)
 	return projects[project_id], nil
 end
 
+function data_io.get_project_id_by_name(project_name)
+	local projects, err = data_io.get_all_projects()
+	if err or projects == nil then return nil, err end
+	
+	for i, v in ipairs(projects) do
+		if v.name == project_name then
+			return i, nil
+		end
+	end
+	return nil, nil
+end
+
 function data_io.add_project(name, priority)
 	local projects, err = data_io.get_all_projects()
 	if err or projects == nil then return err end
