@@ -62,10 +62,27 @@ end
 local function get_current_project_name()
 	local cwd, _, err = vim.loop.cwd()
 	if cwd == nil then return nil, err end
-	local slash_position = string.find(string.reverse(cwd), '/')
+	local slash_position
+	for i = 1, #cwd do
+		if cwd:sub(i, i) == '/' then
+			slash_position = i
+		end
+	end
 	if slash_position == nil then return nil, nil end
 	local curr_project = string.sub(cwd, slash_position + 1)
+	print(curr_project)
 	return curr_project
+end
+
+local function does_project_with_name_exist(project_name)
+	local projects, err = data_io.get_all_projects()
+	if err or projects == nil then return nil, err end
+	for _, v in ipairs(projects) do
+		if v.name == project_name then
+			return true, nil
+		end
+	end
+	return false, nil
 end
 
 function gui_builder.init()
@@ -301,7 +318,6 @@ function gui_builder.open_task_details_win_by_id(task_id)
 end
 
 function gui_builder.open_current_project_win()
-	print(get_current_project_name())
 	local curr_project_id = data_io.get_project_id_by_name(get_current_project_name())
 	if curr_project_id == nil then
 		print("Current directory doesn't have a project connected to it")
@@ -473,6 +489,7 @@ function gui_builder.change_property_task()
 	gui_builder.open_task_details_win_by_id(gui_builder.chosen_task_id)
 end
 
+-- check if project with given name exists
 function gui_builder.create_project()
 	local name, priority
 	vim.ui.input({ prompt = 'Enter the projects name: '}, function(input)
@@ -483,6 +500,16 @@ function gui_builder.create_project()
 	end)
 
 	data_io.add_project(name, priority)
+	gui_builder.open_project_list_win()
+end
+
+function gui_builder.create_project_with_name(project_name)
+	local priority
+	vim.ui.input({ prompt = 'Enter the projects priority: '}, function(input)
+		priority = input
+	end)
+
+	data_io.add_project(project_name, priority)
 	gui_builder.open_project_list_win()
 end
 
@@ -516,6 +543,17 @@ function gui_builder.rename_project()
 		data_io.edit.name(project_id, input)
 	end)
 	gui_builder.open_project_list_win()
+end
+
+function gui_builder.create_current_project()
+	local projects, err = data_io.get_all_projects()
+	if err or projects == nil then return err end
+	local project_name = get_current_project_name()
+	if does_project_with_name_exist(project_name) then
+		print('Project with that name already exists')
+		return nil
+	end
+	gui_builder.create_project_with_name(project_name)
 end
 
 return gui_builder
