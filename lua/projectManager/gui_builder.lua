@@ -282,12 +282,12 @@ function gui_builder.open_task_details_win()
 	local project, err = data_io.get_project_by_id(gui_builder.chosen_project_id)
 	if err or project == nil then return err end
 	local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
-	if row <= 3 then
+	local task_line_number = #project.comments + 8
+	if row <= task_line_number then
 		print('Please select a valid line')
 		return
 	end
-	local comment_line_number = 7
-	local task_id = row - #project.comments - comment_line_number - 1
+	local task_id = row - task_line_number
 
 	gui_builder.close_window()
 	gui_builder.build_window()
@@ -303,6 +303,10 @@ end
 function gui_builder.open_current_project_win()
 	print(get_current_project_name())
 	local curr_project_id = data_io.get_project_id_by_name(get_current_project_name())
+	if curr_project_id == nil then
+		print("Current directory doesn't have a project connected to it")
+		return
+	end
 	gui_builder.build_window()
 	gui_builder.render_project_by_id(curr_project_id)
 	gui_builder.chosen_project_id = curr_project_id
